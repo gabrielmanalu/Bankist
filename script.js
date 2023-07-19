@@ -12,17 +12,17 @@ const account1 = {
   pin: 1111,
 
   movementsDates: [
-    "2019-11-18T21:31:17.178Z",
-    "2019-12-23T07:42:02.383Z",
-    "2020-01-28T09:15:04.904Z",
-    "2020-04-01T10:17:24.185Z",
-    "2020-05-08T14:11:59.604Z",
-    "2020-07-26T17:01:17.194Z",
-    "2020-07-28T23:36:17.929Z",
-    "2020-08-01T10:51:36.790Z",
+    "2022-11-18T21:31:17.178Z",
+    "2022-12-23T07:42:02.383Z",
+    "2023-01-28T09:15:04.904Z",
+    "2023-04-01T10:17:24.185Z",
+    "2023-05-08T14:11:59.604Z",
+    "2023-06-26T17:01:17.194Z",
+    "2023-06-28T23:36:17.929Z",
+    "2023-07-18T10:51:36.790Z",
   ],
   currency: "USD",
-  locale: "en-US",
+  locale: "ja-JP",
 };
 
 const account2 = {
@@ -32,14 +32,14 @@ const account2 = {
   pin: 2222,
 
   movementsDates: [
-    "2019-11-01T13:15:33.035Z",
-    "2019-11-30T09:48:16.867Z",
-    "2019-12-25T06:04:23.907Z",
-    "2020-01-25T14:18:46.235Z",
-    "2020-02-05T16:33:06.386Z",
-    "2020-04-10T14:43:26.374Z",
-    "2020-06-25T18:49:59.371Z",
-    "2020-07-26T12:01:20.894Z",
+    "2022-11-01T13:15:33.035Z",
+    "2022-11-30T09:48:16.867Z",
+    "2022-12-25T06:04:23.907Z",
+    "2023-01-25T14:18:46.235Z",
+    "2023-02-05T16:33:06.386Z",
+    "2023-04-10T14:43:26.374Z",
+    "2023-06-25T18:49:59.371Z",
+    "2023-07-18T12:01:20.894Z",
   ],
   currency: "USD",
   locale: "en-US",
@@ -87,6 +87,48 @@ const updateUi = function(acc) {
   displaySummary(acc);
 }
 
+const formatMovementDate = function (date, locale) {
+  const calcDaysPassed = (date1, date2) =>
+    Math.round(Math.abs(date2 - date1) / (1000 * 60 * 60 * 24));
+
+  const daysPassed = calcDaysPassed(new Date(), date);
+  console.log(daysPassed);
+
+  if (daysPassed === 0) return "Today";
+  if (daysPassed === 1) return "Yesterday";
+  if (daysPassed <= 7) return `${daysPassed} days ago`;
+
+  return new Intl.DateTimeFormat(locale).format(date);
+};
+
+const formatCur = function (value, locale, currency) {
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: currency,
+  }).format(value);
+};
+
+const startLogOutTimer = function () {
+  const tick = function () {
+    const min = String(Math.trunc(time / 60)).padStart(2, 0);
+    const sec = String(time % 60).padStart(2, 0);
+    labelTimer.textContent = `${min}:${sec}`;
+    if (time === 0) {
+      clearInterval(timer);
+      labelWelcome.textContent = "Log in to get started";
+      containerApp.style.opacity = 0;
+    }
+    time--;
+  };
+
+  let time = 120;
+
+  tick();
+  const timer = setInterval(tick, 1000);
+  return timer;
+};
+
+
 const displayMovements = function(accs, sort = false) {
   containerMovements.innerHTML = '';
   const movs = sort ? accs.movements.slice().sort((a, b) => a - b) : accs.movements;
@@ -95,10 +137,7 @@ const displayMovements = function(accs, sort = false) {
       const type = mov > 0 ? 'deposit' : 'withdrawal'
 
       const date = new Date(accs.movementsDates[i]);
-      const day = `${date.getDate()}`.padStart(2,0);
-      const month = `${date.getMonth() + 1}`.padStart(2,0)
-      const year = date.getFullYear();
-      const displayDate = `${year}/${month}/${day}`;
+      const displayDate = formatMovementDate(date, accs.locale);
 
       const html =  `
       <div class="movements__row">
@@ -121,7 +160,7 @@ const displaySummary = function(accs){
   labelSumIn.textContent = `$${income}`;
 
   const outcome = accs.movements.filter(mov => mov < 0).reduce((cur, mov) => cur + mov, 0);
-  labelSumOut.textContent = `$${Math.abs(outcome)}`;
+  labelSumOut.textContent = `$${Math.abs(outcome).toFixed(2)}`;
 
   const interest = accs.movements.filter(mov => mov > 0).map(deposit => (deposit * accs.interestRate) / 100)
                   .filter((int) => int >= 1).reduce((cur, mov) => cur + mov, 0);
@@ -130,7 +169,7 @@ const displaySummary = function(accs){
 
 
 
-let currentAccount;
+let currentAccount, timer;
 
 btnLogin.addEventListener('click', function(e){
   e.preventDefault();
@@ -141,12 +180,21 @@ btnLogin.addEventListener('click', function(e){
     labelWelcome.textContent = `Welcome back, ${currentAccount.owner.split(' ')[0]}!`;
     containerApp.style.visibility = 'visible';
     const now = new Date();
-    const day = `${now.getDate()}`.padStart(2,0);
-    const month = `${now.getMonth() + 1}`.padStart(2,0)
-    const year = now.getFullYear();
-    const hour = now.getHours();
-    const min = now.getMinutes();
-    labelDate.textContent = `${year}/${month}/${day}, ${hour}:${min}`;
+    const options = {
+      hour: "numeric",
+      minute: "numeric",
+      day: "numeric",
+      month: "numeric",
+      year: "numeric",
+    };
+    labelDate.textContent = new Intl.DateTimeFormat(
+      currentAccount.locale,
+      options
+    ).format(now);
+
+    if (timer) clearInterval(timer);
+    timer = startLogOutTimer();
+
     updateUi(currentAccount);
   }
 })
@@ -164,6 +212,8 @@ btnTransfer.addEventListener('click', function(e){
       destination.movementsDates.push(new Date());
       updateUi(currentAccount);
       inputTransferAmount.value = inputTransferTo.value ='';
+      clearInterval(timer);
+      timer = startLogOutTimer();
     }
 });
 
@@ -182,9 +232,13 @@ btnLoan.addEventListener('click', function(e){
   e.preventDefault();
   const amount = Number(inputLoanAmount.value);
   if(amount > 0 && currentAccount.movements.some(mov => mov > amount * 0.1)){
-    currentAccount.movements.push(amount);
-    currentAccount.movementsDates.push(new Date());
-    updateUi(currentAccount);
+    setTimeout(function(){
+      currentAccount.movements.push(amount);
+      currentAccount.movementsDates.push(new Date());
+      updateUi(currentAccount);
+      clearInterval(timer);
+      timer = startLogOutTimer();
+    }, 1000);
   }
   inputLoanAmount.value = '';
 })
